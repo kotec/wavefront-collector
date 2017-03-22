@@ -469,6 +469,32 @@ class NewRelicMetricRetrieverCommand(NewRelicCommand):
             self.config.start_time = None
             self.config.end_time = None
 
+    def _filter_fields_by_regex(self, field_list, white_list, white_list_compiled, black_list, black_list_compiled):
+        # now we have a list of metric names apply some filtering based
+        # on the white and black list
+        if white_list:
+            for fieldname in field_list[:]:
+                found = False
+                for pattern in white_list_compiled:
+                    if pattern.match(fieldname):
+                        found = True
+                        break
+                if not found:
+                    field_list.remove(fieldname)
+        # black list ...
+        if black_list:
+            self.logger.debug('Checking field names against black list')
+            for fieldname in field_list[:]:
+                found = False
+                for pattern in black_list_compiled:
+                    if pattern.match(fieldname):
+                        found = True
+                        break
+                if found:
+                    field_list.remove(fieldname)
+
+        return field_list
+
     #pylint: disable=too-many-arguments
     #pylint: disable=too-many-locals
     #pylint: disable=too-many-branches
@@ -523,28 +549,8 @@ class NewRelicMetricRetrieverCommand(NewRelicCommand):
         names.extend(self.get_metric_names_for_path(
             path, self.config.additional_fields))
 
-        # now we have a list of metric names apply some filtering based
-        # on the white and black list
-        if self.config.fields_regex:
-            for fieldname in names[:]:
-                found = False
-                for pattern in self.config.fields_regex_compiled:
-                    if pattern.match(fieldname):
-                        found = True
-                        break
-                if not found:
-                    names.remove(fieldname)
-        # black list ...
-        if self.config.fields_blacklist_regex:
-            self.logger.debug('Checking field names against black list')
-            for fieldname in names[:]:
-                found = False
-                for pattern in self.config.fields_blacklist_regex_compiled:
-                    if pattern.match(fieldname):
-                        found = True
-                        break
-                if found:
-                    names.remove(fieldname)
+        names = self._filter_fields_by_regex(names, self.config.fields_regex, self.config.fields_regex_compiled,
+                                             self.config.fields_blacklist_regex, self.config.fields_blacklist_regex_compiled)
 
         self.logger.debug('%d Metric names for path %s:\n%s',
                           len(names), path, str(names))
@@ -563,26 +569,8 @@ class NewRelicMetricRetrieverCommand(NewRelicCommand):
 
         path = '/servers/%s' % (server_id)
         fields = self.get_metric_names_for_path(path, [])
-        if self.config.fields_regex:
-            for fieldname in fields[:]:
-                found = False
-                for pattern in self.config.fields_regex_compiled:
-                    if pattern.match(fieldname):
-                        found = True
-                        break
-                if not found:
-                    fields.remove(fieldname)
-        # black list ...
-        if self.config.fields_blacklist_regex:
-            self.logger.debug('Checking field names against server black list')
-            for fieldname in fields[:]:
-                found = False
-                for pattern in self.config.fields_blacklist_regex_compiled:
-                    if pattern.match(fieldname):
-                        found = True
-                        break
-                if found:
-                    fields.remove(fieldname)
+        fields = self._filter_fields_by_regex(fields, self.config.server_fields_regex, self.config.server_fields_regex_compiled,
+                                              self.config.server_fields_blacklist_regex, self.config.server_fields_blacklist_regex_compiled)
 
         tags = {
             'server_id': server_id,
