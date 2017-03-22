@@ -56,6 +56,15 @@ class NewRelicPluginConfiguration(command.CommandConfiguration):
         self.fields_blacklist_regex_compiled = []
         for regex in self.fields_blacklist_regex:
             self.fields_blacklist_regex_compiled.append(re.compile(regex))
+        self.server_fields_regex = self.getlist('filter', 'server_regex', [])
+        self.server_fields_regex_compiled = []
+        for regex in self.server_fields_regex:
+            self.server_fields_regex_compiled.append(re.compile(regex))
+        self.server_fields_blacklist_regex = self.getlist(
+            'filter', 'server_blacklist_regex', [])
+        self.server_fields_blacklist_regex_compiled = []
+        for regex in self.server_fields_blacklist_regex:
+            self.server_fields_blacklist_regex_compiled.append(re.compile(regex))
         self.additional_fields = self.getlist('filter', 'additional_fields', [])
         self.application_ids = self.getlist('filter', 'application_ids', [])
         self.start_time = self.getdate('filter', 'start_time', None)
@@ -554,6 +563,27 @@ class NewRelicMetricRetrieverCommand(NewRelicCommand):
 
         path = '/servers/%s' % (server_id)
         fields = self.get_metric_names_for_path(path, [])
+        if self.config.fields_regex:
+            for fieldname in fields[:]:
+                found = False
+                for pattern in self.config.fields_regex_compiled:
+                    if pattern.match(fieldname):
+                        found = True
+                        break
+                if not found:
+                    fields.remove(fieldname)
+        # black list ...
+        if self.config.fields_blacklist_regex:
+            self.logger.debug('Checking field names against server black list')
+            for fieldname in fields[:]:
+                found = False
+                for pattern in self.config.fields_blacklist_regex_compiled:
+                    if pattern.match(fieldname):
+                        found = True
+                        break
+                if found:
+                    fields.remove(fieldname)
+
         tags = {
             'server_id': server_id,
             'server_name': server_name

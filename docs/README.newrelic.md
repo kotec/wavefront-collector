@@ -52,8 +52,10 @@ This configuration file also acts as a fileconfig for the logger.  See [fileConf
 | Option | Description | Required? | Default |
 | ------ | ----------- | ------- | ------- |
 | names | Comma-separated list of specific names to retrieve | No | None |
-| regex | Comma-separated list of regular expressions to match against results of the metrics.json calls.  White list.  Matches are retrieved from data.json. | No | None |
-| blacklist_regex | Comma-separated list of regular expressions to not include. Black list trumps white list. | No | None |
+| regex | Comma-separated list of regular expressions to match against results of the metrics.json calls for hosts.  White list.  Matches are retrieved from data.json. | No | None |
+| blacklist_regex | Comma-separated list of regular expressions to not include for hosts. Black list trumps white list. | No | None |
+| server_regex | Comma-separated list of regular expressions to match against results of the metrics.json calls for servers.  White list.  Matches are retrieved from data.json. | No | None |
+| server_blacklist_regex | Comma-separated list of regular expressions to not include for servers. Black list trumps white list. | No | None |
 | additional_fields | Comma-separated list of metric names to retrieve in addition to the ones returned by metrics.json calls.  By default, you probably will want to include `HttpDispatcher,Errors,Memcached,External` | No | None |
 | application_ids | Comma-separated list of New Relic application IDs to retrieve metrics from | No | All |
 | start_time | Start time for range based backfilling query (YYYY-MM-DDTHH:mm:ss+00:00) | No | None |
