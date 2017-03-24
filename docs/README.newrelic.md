@@ -54,6 +54,8 @@ This configuration file also acts as a fileconfig for the logger.  See [fileConf
 | names | Comma-separated list of specific names to retrieve | No | None |
 | regex | Comma-separated list of regular expressions to match against results of the metrics.json calls for hosts.  White list.  Matches are retrieved from data.json. | No | None |
 | blacklist_regex | Comma-separated list of regular expressions to not include for hosts. Black list trumps white list. | No | None |
+| app_regex | Comma-separated list of regular expressions to match against results of the metrics.json calls for application.  White list.  Matches are retrieved from data.json. | No | None |
+| app_blacklist_regex | Comma-separated list of regular expressions to not include for application. Black list trumps white list. | No | None |
 | server_regex | Comma-separated list of regular expressions to match against results of the metrics.json calls for servers.  White list.  Matches are retrieved from data.json. | No | None |
 | server_blacklist_regex | Comma-separated list of regular expressions to not include for servers. Black list trumps white list. | No | None |
 | additional_fields | Comma-separated list of metric names to retrieve in addition to the ones returned by metrics.json calls.  By default, you probably will want to include `HttpDispatcher,Errors,Memcached,External` | No | None |
@@ -65,6 +67,7 @@ This configuration file also acts as a fileconfig for the logger.  See [fileConf
 | Option | Description | Required? | Default |
 | ------ | ----------- | ------- | ------- |
 | include_application_summary | Include the summary metrics from the application API (error_rate, etc) | No | True |
+| include_application_detail | Include the application metrics from the /application API | No | False |
 | include_host_application_summary | Include the summary metrics from the /host/application API | No | True |
 | include_hosts | Include the host metrics from /host/data.json | No | True |
 | include_server_summary | Include the summary details from the /servers/data.json API | No | True |

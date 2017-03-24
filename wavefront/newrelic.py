@@ -56,6 +56,15 @@ class NewRelicPluginConfiguration(command.CommandConfiguration):
         self.fields_blacklist_regex_compiled = []
         for regex in self.fields_blacklist_regex:
             self.fields_blacklist_regex_compiled.append(re.compile(regex))
+        self.app_fields_regex = self.getlist('filter', 'app_regex', [])
+        self.app_fields_regex_compiled = []
+        for regex in self.app_fields_regex:
+            self.app_fields_regex_compiled.append(re.compile(regex))
+        self.app_fields_blacklist_regex = self.getlist(
+            'filter', 'app_blacklist_regex', [])
+        self.app_fields_blacklist_regex_compiled = []
+        for regex in self.app_fields_blacklist_regex:
+            self.app_fields_blacklist_regex_compiled.append(re.compile(regex))
         self.server_fields_regex = self.getlist('filter', 'server_regex', [])
         self.server_fields_regex_compiled = []
         for regex in self.server_fields_regex:
@@ -83,6 +92,8 @@ class NewRelicPluginConfiguration(command.CommandConfiguration):
             'options', 'include_host_application_summary', True)
         self.include_server_summary = self.getboolean(
             'options', 'include_server_summary', True)
+        self.include_application_details = self.getboolean(
+            'options', 'include_application_details', False)
         self.include_servers = self.getboolean(
             'options', 'include_server_details', False)
 
@@ -391,6 +402,10 @@ class NewRelicMetricRetrieverCommand(NewRelicCommand):
                                          tags, self.config.get_value_to_send,
                                          self.logger)
 
+            if (self.config.include_application_details and
+                    not utils.CANCEL_WORKERS_EVENT.is_set()):
+                self.send_metrics_for_overall_application(app_id, app_name, start, end)
+
             if ((self.config.include_hosts or
                  self.config.include_host_app_summary) and
                     not utils.CANCEL_WORKERS_EVENT.is_set()):
@@ -494,6 +509,36 @@ class NewRelicMetricRetrieverCommand(NewRelicCommand):
                     field_list.remove(fieldname)
 
         return field_list
+
+    def send_metrics_for_overall_application(self, app_id, app_name, start, end):
+        """
+        Retrieves the metrics for the given application and sends them to configured
+        endpoint.
+
+        Arguments:
+        app_id - The application's ID
+        app_name - The application's name
+        start - the starting datetime object
+        end - the ending datetime object
+        """
+
+        if not self.config.include_application_details:
+            return
+
+        tags = {
+            'app_id': app_id,
+            'app_name': app_name
+        }
+
+        self.logger.info('Retrieving application %s metrics ...', app_name)
+        path = '/applications/%s' % (app_id)
+
+        names = self.get_metric_names_for_path(path,[])
+        names = self._filter_fields_by_regex(names, self.config.app_fields_regex, self.config.app_fields_regex_compiled,
+                                             self.config.app_fields_blacklist_regex, self.config.app_fields_blacklist_regex_compiled)
+
+        self.logger.debug('%d Metric names for path %s:\n%s', len(names), path, str(names))
+        self.get_metrics_for_path(path, names, start, end, app_name, tags)
 
     #pylint: disable=too-many-arguments
     #pylint: disable=too-many-locals
