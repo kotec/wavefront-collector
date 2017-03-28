@@ -336,6 +336,7 @@ class NewRelicMetricRetrieverCommand(NewRelicCommand):
         """
 
         if (not self.config.include_application_summary and
+                not self.config.include_application_details and
                 not self.config.include_host_app_summary and
                 not self.config.include_hosts):
             return
