@@ -404,6 +404,8 @@ class NewRelicMetricRetrieverCommand(NewRelicCommand):
             # construct start time for when to get metrics starting from
             if self.config.start_time:
                 start = self.config.start_time
+            elif self.config.get_last_run_time():
+                start = self.config.get_last_run_time()
             else:
                 start = ((datetime.datetime.utcnow() -
                           datetime.timedelta(seconds=60.0))
