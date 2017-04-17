@@ -98,6 +98,7 @@ class NewRelicPluginConfiguration(command.CommandConfiguration):
             'options', 'include_server_details', False)
 
         self.include_hosts = self.getboolean('options', 'include_hosts', True)
+        self.use_raw = self.getboolean('options', 'use_raw', True)
         self.min_delay = int(self.get('options', 'min_delay', 60))
         self.wf_api_key = self.get('wavefront_api', 'key', '')
         self.wf_api_endpoint = self.get(
@@ -662,7 +663,7 @@ class NewRelicMetricRetrieverCommand(NewRelicCommand):
                 'from': start.isoformat(),
                 'to': end.isoformat(),
                 'names[]': fields_to_get_temp[0:self.config.max_metric_names],
-                'raw': True,
+                'raw': self.config.use_raw,
                 'summarize': False
             }
             del fields_to_get_temp[0:self.config.max_metric_names]
