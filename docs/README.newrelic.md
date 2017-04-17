@@ -73,6 +73,7 @@ This configuration file also acts as a fileconfig for the logger.  See [fileConf
 | include_server_summary | Include the summary details from the /servers/data.json API | No | True |
 | include_server_details | Include the server metrics from the /servers/data.json API | No | False |
 | min_delay | The minimum number of seconds between the last run time and the current run time | No | 60 |
+| use_raw | Have new relic return raw values | No | True |
 | skip_null_values | Do not include metrics with null values (0 is not null in this case) | No | False |
 | default_null_value | If including null values, then replace 'null' with this value | No | 0 |
 | max_metric_names | Maximum number of metric names to request at one time when querying `/data.json` API | No | 25 |
