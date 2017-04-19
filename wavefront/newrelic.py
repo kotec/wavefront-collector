@@ -306,10 +306,13 @@ class NewRelicMetricRetrieverCommand(NewRelicCommand):
 
         self.logger.info('Retrieving server metrics ...')
 
-        if not self.server_list:
-            servers = self.call_api('/servers.json')[0]
-        else:
-            servers = self.server_list
+        query_string = None
+        if self.server_list:
+            query_string = {
+                'filter[ids]': ','.join(self.server_list.iterkeys())
+            }
+
+        servers = self.call_api('/servers.json', query_string)[0]
 
         for server in servers['servers']:
             if utils.CANCEL_WORKERS_EVENT.is_set():
@@ -321,6 +324,12 @@ class NewRelicMetricRetrieverCommand(NewRelicCommand):
                 'server_id': server_id,
                 'server_name': server_name
             }
+
+            server_app_info = self.server_list[str(server_id)]
+            if server_app_info:
+                tags['app_id'] = server_app_info['app_id']
+                tags['app_name'] = server_app_info['app_name']
+
             if (self.config.include_server_summary and
                     'summary' in server):
                 summary = server['summary']
@@ -418,7 +427,11 @@ class NewRelicMetricRetrieverCommand(NewRelicCommand):
                 self.config.include_servers) and
                     not utils.CANCEL_WORKERS_EVENT.is_set()):
 
-                self.server_list = self.server_list + app['links']['servers']
+                for server in app['links']['servers']:
+                    self.server_list[str(server)] = {
+                        'app_id': app_id,
+                        'app_name': app_name
+                    }
 
 
             if ((self.config.include_hosts or
@@ -440,7 +453,7 @@ class NewRelicMetricRetrieverCommand(NewRelicCommand):
 
         try:
             self.init_proxy()
-            self.server_list = []
+            self.server_list = {}
             # construct start time for when to get metrics starting from
             if self.config.start_time:
                 start = self.config.start_time

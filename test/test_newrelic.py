@@ -83,8 +83,6 @@ class TestNewRelicCommand(unittest.TestCase):
         with mock.patch('wavefront.newrelic.NewRelicMetricRetrieverCommand.get_metric_names_for_path') as metric_name_call:
             assert not metric_name_call.called
 
-    # def test_metric_
-
     def tearDown(self):
         self.start = None
         self.end = None
