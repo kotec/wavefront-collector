@@ -305,7 +305,12 @@ class NewRelicMetricRetrieverCommand(NewRelicCommand):
             return
 
         self.logger.info('Retrieving server metrics ...')
-        servers = self.call_api('/servers.json')[0]
+
+        if not self.server_list:
+            servers = self.call_api('/servers.json')[0]
+        else:
+            servers = self.server_list
+
         for server in servers['servers']:
             if utils.CANCEL_WORKERS_EVENT.is_set():
                 return
@@ -408,6 +413,14 @@ class NewRelicMetricRetrieverCommand(NewRelicCommand):
                     not utils.CANCEL_WORKERS_EVENT.is_set()):
                 self.send_metrics_for_overall_application(app_id, app_name, start, end)
 
+
+            if ((self.config.include_server_summary or
+                self.config.include_servers) and
+                    not utils.CANCEL_WORKERS_EVENT.is_set()):
+
+                self.server_list = self.server_list + app['links']['servers']
+
+
             if ((self.config.include_hosts or
                  self.config.include_host_app_summary) and
                     not utils.CANCEL_WORKERS_EVENT.is_set()):
@@ -427,6 +440,7 @@ class NewRelicMetricRetrieverCommand(NewRelicCommand):
 
         try:
             self.init_proxy()
+            self.server_list = []
             # construct start time for when to get metrics starting from
             if self.config.start_time:
                 start = self.config.start_time
