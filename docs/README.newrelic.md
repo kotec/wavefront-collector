@@ -84,7 +84,10 @@ This configuration file also acts as a fileconfig for the logger.  See [fileConf
 | Option | Description | Required? | Default |
 | ------ | ----------- | ------- | ------- |
 | key | Wavefront API Key | No | None |
-| endpoint | Wavefront endpont | No | https://metrics.wavefront.com/ |
+| endpoint | Wavefront endpoint | No | https://metrics.wavefront.com/ |
+| tag_sources | Turn on tag sources functionality | No | https://metrics.wavefront.com/ |
+| source_map | Map to tag sources. If source matches regex, tag with source name. | No | {} |
+
 
 #### Section: writer
 | Option | Description | Required? | Default |
