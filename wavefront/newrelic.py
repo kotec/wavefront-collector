@@ -80,6 +80,7 @@ class NewRelicPluginConfiguration(command.CommandConfiguration):
             self.server_fields_blacklist_regex_compiled.append(re.compile(regex))
         self.additional_fields = self.getlist('filter', 'additional_fields', [])
         self.application_ids = self.getlist('filter', 'application_ids', [])
+        self.application_categories = self.getlist('filter', 'application_categories', [])
         self.start_time = self.getdate('filter', 'start_time', None)
         self.end_time = self.getdate('filter', 'end_time', None)
         self._setup_output(self)
@@ -102,6 +103,7 @@ class NewRelicPluginConfiguration(command.CommandConfiguration):
             'options', 'include_server_details', False)
 
         self.include_hosts = self.getboolean('options', 'include_hosts', True)
+        self.use_app_categories = self.getboolean('options', 'use_app_categories', False)
         self.use_raw = self.getboolean('options', 'use_raw', True)
         self.min_delay = int(self.get('options', 'min_delay', 60))
         self.wf_api_key = self.get('wavefront_api', 'key', '')
@@ -318,12 +320,24 @@ class NewRelicMetricRetrieverCommand(NewRelicCommand):
 
         self.logger.info('Retrieving server metrics ...')
 
-        query_string = None
         if self.server_list:
-            query_string = {
-                'filter[ids]': ','.join(self.server_list.iterkeys())
-            }
+            server_ids = list(self.server_list.viewkeys())
+            loop_seg_start = 0
+            loop_seg_end = min(len(self.server_list), 200)
+            while loop_seg_start < loop_seg_end:
+                query_string = {
+                    'filter[ids]': ','.join(server_ids[loop_seg_start:loop_seg_end])
+                }
 
+                self._get_and_send_server_metric(start, end, query_string)
+
+                loop_seg_start = loop_seg_start + 200
+                loop_seg_end = min(len(self.server_list), loop_seg_end + 200)
+
+        else:
+            self._get_and_send_server_metric(start, end, None)
+
+    def _get_and_send_server_metric(self, start, end, query_string):
         servers = self.call_api('/servers.json', query_string)[0]
 
         for server in servers['servers']:
@@ -337,8 +351,8 @@ class NewRelicMetricRetrieverCommand(NewRelicCommand):
                 'server_name': server_name
             }
 
-            server_app_info = self.server_list[str(server_id)]
-            if server_app_info:
+            if str(server_id) in self.server_list:
+                server_app_info = self.server_list[str(server_id)]
                 tags['app_id'] = server_app_info['app_id']
                 tags['app_name'] = server_app_info['app_name']
 
@@ -370,14 +384,23 @@ class NewRelicMetricRetrieverCommand(NewRelicCommand):
             return
 
         query_string = None
-        if self.config.application_ids:
+        if self.config.use_app_categories:
+            for app_name_filter in self.config.application_categories:
+                query_string = {
+                    'filter[name]': app_name_filter
+                }
+                args = (start, end)
+                self.call_paginated_api('/applications.json', query_string,
+                                        self._handle_applications_response, args)
+
+        elif self.config.application_ids:
             query_string = {
                 'filter[ids]': ','.join(self.config.application_ids)
             }
+            args = (start, end)
+            self.call_paginated_api('/applications.json', query_string,
+                                    self._handle_applications_response, args)
 
-        args = (start, end)
-        self.call_paginated_api('/applications.json', query_string,
-                                self._handle_applications_response, args)
 
     #pylint: disable=too-many-branches
     def _handle_applications_response(self, response, start, end):
