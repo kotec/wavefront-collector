@@ -8,6 +8,7 @@ from dateutil.parser import parse
 sys.path.append('..')
 from wavefront.newrelic import NewRelicMetricRetrieverCommand
 from wavefront.newrelic import NewRelicPluginConfiguration
+from wavefront_api_client.rest import ApiException
 
 
 class TestNewRelicCommand(unittest.TestCase):
@@ -82,6 +83,35 @@ class TestNewRelicCommand(unittest.TestCase):
 
         with mock.patch('wavefront.newrelic.NewRelicMetricRetrieverCommand.get_metric_names_for_path') as metric_name_call:
             assert not metric_name_call.called
+
+
+    def test_tag_source(self):
+        cmd = NewRelicMetricRetrieverCommand()
+
+        cmd.config = NewRelicPluginConfiguration(
+            config_file_path=os.path.join(os.getcwd(), 'test-conf/test-newrelic-details.conf'))
+
+        source_name = "ttregextestregex"
+
+        with mock.patch('wavefront_api_client.SourceApi.add_source_tag') as add_source_tag_call:
+            cmd.tag_source(source_name)
+
+            assert add_source_tag_call.called
+            assert add_source_tag_call.call_count == 2
+
+    def test_tag_source_failed_attempts(self):
+        cmd = NewRelicMetricRetrieverCommand()
+
+        cmd.config = NewRelicPluginConfiguration(
+            config_file_path=os.path.join(os.getcwd(), 'test-conf/test-newrelic-details.conf'))
+
+        source_name = "ttregextestregex"
+
+        with mock.patch('wavefront_api_client.SourceApi.add_source_tag', side_effect=ApiException) as add_source_tag_call:
+            cmd.tag_source(source_name)
+
+            assert add_source_tag_call.called
+            assert add_source_tag_call.call_count == 6
 
     def tearDown(self):
         self.start = None

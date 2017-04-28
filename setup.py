@@ -23,7 +23,7 @@ except (IOError, ImportError):
 
 setuptools.setup(
     name='wavefront_collector',
-    version='0.0.48+umd.0.0.1.nr.5',
+    version='0.0.48+umd.0.0.1.nr.6',
     author='Wavefront',
     author_email='mike@wavefront.com',
     description=('Wavefront Collector Tools'),
@@ -31,7 +31,7 @@ setuptools.setup(
     long_description=LONG_DESCRIPTION,
     keywords='wavefront wavefront_integration collector metrics',
     url='https://www.wavefront.com',
-    install_requires=['wavefront_client', 'python-dateutil', 'logging',
+    install_requires=['wavefront-api-client', 'python-dateutil', 'logging',
                       'python-daemon>=2.1.1', 'boto3', 'ndg-httpsclient'],
     classifiers=[
         'Development Status :: 4 - Beta',

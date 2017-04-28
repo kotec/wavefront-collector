@@ -187,6 +187,25 @@ class Configuration(object):
         else:
             return value
 
+    def getdict(self, section, key, default_value, default_section=None,
+                pair_delimiter=',', key_value_delimiter=':'):
+        try:
+            value = self.config.get(section, key)
+            if value:
+                value = value.split(pair_delimiter)
+        except ConfigParser.NoOptionError:
+            value = None
+        except ConfigParser.NoSectionError:
+            value = None
+
+        if value is None:
+            if default_section:
+                return self.getlist(default_section, key, default_value, None)
+            else:
+                return default_value
+
+        return dict(item.split(key_value_delimiter) for item in value)
+
     def set(self, section, key, value, create_section=True):
         """
         Sets the value in the given section.  Creates the section if it does

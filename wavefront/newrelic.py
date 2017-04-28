@@ -13,9 +13,13 @@ import os
 import os.path
 import re
 import time
+import sys
 
 import logging.config
 import dateutil.parser
+
+import wavefront_api_client
+from wavefront_api_client.rest import ApiException
 
 from wavefront.utils import parallel_process_and_wait
 from wavefront import command, utils
@@ -103,6 +107,10 @@ class NewRelicPluginConfiguration(command.CommandConfiguration):
         self.wf_api_key = self.get('wavefront_api', 'key', '')
         self.wf_api_endpoint = self.get(
             'wavefront_api', 'endpoint', 'https://metrics.wavefront.com/')
+        self.tag_sources = self.getboolean(
+            'wavefront_api', 'tag_sources', False)
+        self.source_map = self.getdict('wavefront_api', 'source_map', {})
+
         self.skip_null_values = self.getboolean(
             'options', 'skip_null_values', False)
         self.default_null_value = self.get('options', 'default_null_value', 0)
@@ -191,6 +199,7 @@ class NewRelicMetricRetrieverCommand(NewRelicCommand):
         #                  is refreshed
         #   value - the list of metric names (list of strings)
         self.metric_name_cache = {}
+        self.source_name_cache = {}
 
     #pylint: disable=no-self-use
     def get_help_text(self):
@@ -215,6 +224,9 @@ class NewRelicMetricRetrieverCommand(NewRelicCommand):
         except ConfigParser.NoSectionError:
             pass
         self.logger = logging.getLogger()
+
+        # configure wavefront api
+        self.wf_client = wavefront_api_client.ApiClient(host=self.config.wf_api_endpoint, header_name='Authorization', header_value='Bearer ' + self.config.wf_api_key)
 
     def get_metric_names_for_path(self, path, names_filter):
         """
@@ -337,10 +349,11 @@ class NewRelicMetricRetrieverCommand(NewRelicCommand):
                     if utils.CANCEL_WORKERS_EVENT.is_set():
                         break
                     metric_name = ('servers/%s/%s' % (server_name, key))
-                    self.send_metric(self.proxy, metric_name, value, 'newrelic',
+                    self.send_metric(self.proxy, metric_name, value, server_name,
                                      server['last_reported_at'], tags,
                                      self.config.get_value_to_send, self.logger)
             self.send_metrics_for_server(server_id, server_name, start, end)
+            self.tag_source(server_name)
 
     def _application_metrics(self, start, end):
         """
@@ -403,7 +416,7 @@ class NewRelicMetricRetrieverCommand(NewRelicCommand):
                         break
                     metric_name = 'apps/%s/%s' % (app_name, key)
                     self.send_metric(self.proxy, metric_name, value,
-                                     'newrelic', app['last_reported_at'],
+                                     app_name, app['last_reported_at'],
                                      tags, self.config.get_value_to_send,
                                      self.logger)
 
@@ -414,7 +427,7 @@ class NewRelicMetricRetrieverCommand(NewRelicCommand):
                             break
                         metric_name = 'apps/%s/enduser/%s' % (app_name, key)
                         self.send_metric(self.proxy, metric_name, value,
-                                         'newrelic', app['last_reported_at'],
+                                         app_name, app['last_reported_at'],
                                          tags, self.config.get_value_to_send,
                                          self.logger)
 
@@ -422,6 +435,7 @@ class NewRelicMetricRetrieverCommand(NewRelicCommand):
                     not utils.CANCEL_WORKERS_EVENT.is_set()):
                 self.send_metrics_for_overall_application(app_id, app_name, start, end)
 
+            self.tag_source(app_name)
 
             if ((self.config.include_server_summary or
                 self.config.include_servers) and
@@ -736,3 +750,52 @@ class NewRelicMetricRetrieverCommand(NewRelicCommand):
                             self.config.get_value_to_send)
         finally:
             writer.stop()
+
+    def tag_source(self, source):
+
+        if not self.config.tag_sources or not self.config.api_key:
+            return
+
+        hashval = hashlib.md5(source).hexdigest()
+        if hashval in self.source_name_cache:
+            return
+
+        source_api = wavefront_api_client.SourceApi(self.wf_client)
+
+        sleep_time = 1
+
+        all_successful = True
+        for tag in self.config.source_map.iterkeys():
+            regex_compiled = re.compile(self.config.source_map[tag])
+            if regex_compiled.match(source):
+                successful = False
+                attempts = 0
+                while attempts < 3 and not utils.CANCEL_WORKERS_EVENT.is_set():
+                    self.logger.info('Tagging source %s', source)
+                    try:
+                        source_api.add_source_tag(source, tag)
+                        successful = True
+                        break
+
+                    except ApiException as api_ex:
+                        self.logger.warning('Failed to tag source: %s (attempt %d)\n%s',
+                                            api_ex.reason, attempts + 1, api_ex.body)
+
+                    except:
+                        self.logger.warning('Failed to tag source: %s (attempt %d)',
+                                            str(sys.exc_info()), attempts + 1)
+
+                    if not successful:
+                        attempts = attempts + 1
+                        if not utils.CANCEL_WORKERS_EVENT.is_set():
+                            time.sleep(sleep_time)
+                            sleep_time = sleep_time * 2
+
+                if successful:
+                    self.logger.info('Tagged source %s with %s', source, tag)
+                else:
+                    self.logger.info('Failed to tag source %s with %s', source, tag)
+                    all_successful = False
+
+        if all_successful:
+            self.source_name_cache[hashval] = source
