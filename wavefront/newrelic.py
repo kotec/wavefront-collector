@@ -81,7 +81,7 @@ class NewRelicPluginConfiguration(command.CommandConfiguration):
         self.additional_fields = self.getlist('filter', 'additional_fields', [])
         self.application_ids = self.getlist('filter', 'application_ids', [])
         self.application_categories = self.getlist('filter', 'application_categories', [])
-        self.app_blacklist = self.getlist('filter', 'app_blacklist', [])
+        self.app_name_blacklist = self.getlist('filter', 'app_name_blacklist', [])
         self.start_time = self.getdate('filter', 'start_time', None)
         self.end_time = self.getdate('filter', 'end_time', None)
         self._setup_output(self)
@@ -426,7 +426,7 @@ class NewRelicMetricRetrieverCommand(NewRelicCommand):
             if not app['reporting']:
                 continue
 
-            if app['name'] in self.config.app_blacklist:
+            if app['name'] in self.config.app_name_blacklist:
                 self.logger.info("Skipping app %s", app['name'])
                 continue
 
