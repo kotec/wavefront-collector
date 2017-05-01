@@ -321,6 +321,7 @@ class NewRelicMetricRetrieverCommand(NewRelicCommand):
         self.logger.info('Retrieving server metrics ...')
 
         if self.server_list:
+            self.logger.info("retrieving server metrics for %d servers", len(self.server_list))
             server_ids = list(self.server_list.viewkeys())
             loop_seg_start = 0
             loop_seg_end = min(len(self.server_list), 200)
