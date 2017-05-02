@@ -695,6 +695,12 @@ class NewRelicMetricRetrieverCommand(NewRelicCommand):
             'server_id': server_id,
             'server_name': server_name
         }
+
+        if str(server_id) in self.server_list:
+            server_app_info = self.server_list[str(server_id)]
+            tags['app_id'] = server_app_info['app_id']
+            tags['app_name'] = server_app_info['app_name']
+
         self.get_metrics_for_path(path, fields, start, end, server_name, tags)
 
     #pylint: disable=too-many-arguments
