@@ -552,7 +552,7 @@ class NewRelicMetricRetrieverCommand(NewRelicCommand):
                 curr_diff = curr_end - curr_start
                 if (curr_diff.total_seconds() > 600 and
                         not utils.CANCEL_WORKERS_EVENT.is_set()):
-                    time.sleep(30)
+                    time.sleep(5)
 
         finally:
             self.config.start_time = None

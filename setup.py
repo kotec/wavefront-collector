@@ -23,7 +23,7 @@ except (IOError, ImportError):
 
 setuptools.setup(
     name='wavefront_collector',
-    version='0.0.48+umd.0.0.1.nr.8',
+    version='0.0.48+umd.0.0.1.nr.8.1',
     author='Wavefront',
     author_email='mike@wavefront.com',
     description=('Wavefront Collector Tools'),
