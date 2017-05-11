@@ -59,7 +59,7 @@ class NewRelicCommand(command.Command):
     #pylint: disable=bare-except
     @staticmethod
     def send_metric(writer, name, value, host, timestamp, tags=None,
-                    value_translator=None, logger=None):
+                    value_translator=None, logger=None, name_prefix = ''):
         """
         Sends the metric to writer.
 
@@ -83,6 +83,8 @@ class NewRelicCommand(command.Command):
             value = value_translator(name, value)
             if value is None:
                 return
+
+        name = name_prefix + name
 
         attempts = 0
         while attempts < 5 and not utils.CANCEL_WORKERS_EVENT.is_set():

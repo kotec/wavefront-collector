@@ -106,6 +106,7 @@ class NewRelicPluginConfiguration(command.CommandConfiguration):
         self.include_hosts = self.getboolean('options', 'include_hosts', True)
         self.use_app_categories = self.getboolean('options', 'use_app_categories', False)
         self.use_raw = self.getboolean('options', 'use_raw', True)
+        self.metric_prefix = self.get('options', 'metric_prefix', '')
         self.min_delay = int(self.get('options', 'min_delay', 60))
         self.wf_api_key = self.get('wavefront_api', 'key', '')
         self.wf_api_endpoint = self.get(
@@ -367,7 +368,8 @@ class NewRelicMetricRetrieverCommand(NewRelicCommand):
                     metric_name = ('servers/%s/%s' % (server_name, key))
                     self.send_metric(self.proxy, metric_name, value, server_name,
                                      server['last_reported_at'], tags,
-                                     self.config.get_value_to_send, self.logger)
+                                     self.config.get_value_to_send, self.logger,
+                                     self.config.metric_prefix)
             self.send_metrics_for_server(server_id, server_name, start, end)
             self.tag_source(server_name)
 
@@ -447,7 +449,7 @@ class NewRelicMetricRetrieverCommand(NewRelicCommand):
                     self.send_metric(self.proxy, metric_name, value,
                                      app_name, app['last_reported_at'],
                                      tags, self.config.get_value_to_send,
-                                     self.logger)
+                                     self.logger, self.config.metric_prefix)
 
                 if 'end_user_summary' in app:
                     summary = app['end_user_summary']
@@ -458,7 +460,7 @@ class NewRelicMetricRetrieverCommand(NewRelicCommand):
                         self.send_metric(self.proxy, metric_name, value,
                                          app_name, app['last_reported_at'],
                                          tags, self.config.get_value_to_send,
-                                         self.logger)
+                                         self.logger, self.config.metric_prefix)
 
             if (self.config.include_application_details and
                     not utils.CANCEL_WORKERS_EVENT.is_set()):
@@ -652,7 +654,8 @@ class NewRelicMetricRetrieverCommand(NewRelicCommand):
                 metric_name = 'apps/%s/%s' % (app_name, key)
                 self.send_metric(self.proxy, metric_name, value, host_name,
                                  start.isoformat(), tags,
-                                 self.config.get_value_to_send, self.logger)
+                                 self.config.get_value_to_send, self.logger,
+                                 self.config.metric_prefix)
 
         if not self.config.include_hosts:
             return
@@ -782,7 +785,8 @@ class NewRelicMetricRetrieverCommand(NewRelicCommand):
                         NewRelicCommand.send_metric(
                             writer, metric_name, value, src_name,
                             time_slice['to'], tags,
-                            self.config.get_value_to_send)
+                            self.config.get_value_to_send, self.logger,
+                            self.config.metric_prefix)
         finally:
             writer.stop()
 
