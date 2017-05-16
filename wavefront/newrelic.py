@@ -123,6 +123,7 @@ class NewRelicPluginConfiguration(command.CommandConfiguration):
             'options', 'max_metric_names', DEFAULT_MAX_METRIC_NAME_COUNT))
         self.delay = int(self.get('options', 'delay', 0))
         self.server_workers = int(self.get('options', 'server_workers', 1))
+        self.app_workers = int(self.get('options', 'app_workers', 1))
 
         self.writer_host = self.get('writer', 'host', '127.0.0.1')
         self.writer_port = int(self.get('writer', 'port', '2878'))
@@ -431,74 +432,78 @@ class NewRelicMetricRetrieverCommand(NewRelicCommand):
         if not response or 'applications' not in response:
             return
 
-        for app in response['applications']:
-            if utils.CANCEL_WORKERS_EVENT.is_set():
-                return
-            self.logger.info('Retrieving %s - %s (app: %s)',
-                             str(start), str(end), app['name'])
-            if not app['reporting']:
-                continue
+        parallel_process_and_wait(zip(itertools.repeat(self._handle_single_application),
+                                      zip(response['applications'], itertools.repeat(start), itertools.repeat(end))),
+                                  self.config.app_workers)
 
-            if app['name'] in self.config.app_name_blacklist:
-                self.logger.info("Skipping app %s", app['name'])
-                continue
 
-            app_id = app['id']
-            app_name = app['name']
-            tags = {
-                'app_id': app_id,
-                'app_name': app_name
-            }
-            if self.config.include_application_summary:
-                self.logger.info('Retrieving application summary (%s)...',
-                                 app['last_reported_at'])
-                summary = app['application_summary']
+    def _handle_single_application(self, app, start, end):
+        if utils.CANCEL_WORKERS_EVENT.is_set():
+            return
+        self.logger.info('Retrieving %s - %s (app: %s)',
+                         str(start), str(end), app['name'])
+        if not app['reporting']:
+            return
+
+        if app['name'] in self.config.app_name_blacklist:
+            self.logger.info("Skipping app %s", app['name'])
+            return
+
+        app_id = app['id']
+        app_name = app['name']
+        tags = {
+            'app_id': app_id,
+            'app_name': app_name
+        }
+        if self.config.include_application_summary:
+            self.logger.info('Retrieving application summary (%s)...',
+                             app['last_reported_at'])
+            summary = app['application_summary']
+            for key, value in summary.iteritems():
+                if utils.CANCEL_WORKERS_EVENT.is_set():
+                    break
+                metric_name = 'apps/%s/%s' % (app_name, key)
+                self.send_metric(self.proxy, metric_name, value,
+                                 app_name, app['last_reported_at'],
+                                 tags, self.config.get_value_to_send,
+                                 self.logger, self.config.metric_prefix)
+
+            if 'end_user_summary' in app:
+                summary = app['end_user_summary']
                 for key, value in summary.iteritems():
                     if utils.CANCEL_WORKERS_EVENT.is_set():
                         break
-                    metric_name = 'apps/%s/%s' % (app_name, key)
+                    metric_name = 'apps/%s/enduser/%s' % (app_name, key)
                     self.send_metric(self.proxy, metric_name, value,
                                      app_name, app['last_reported_at'],
                                      tags, self.config.get_value_to_send,
                                      self.logger, self.config.metric_prefix)
 
-                if 'end_user_summary' in app:
-                    summary = app['end_user_summary']
-                    for key, value in summary.iteritems():
-                        if utils.CANCEL_WORKERS_EVENT.is_set():
-                            break
-                        metric_name = 'apps/%s/enduser/%s' % (app_name, key)
-                        self.send_metric(self.proxy, metric_name, value,
-                                         app_name, app['last_reported_at'],
-                                         tags, self.config.get_value_to_send,
-                                         self.logger, self.config.metric_prefix)
+        if (self.config.include_application_details and
+                not utils.CANCEL_WORKERS_EVENT.is_set()):
+            self.send_metrics_for_overall_application(app_id, app_name, start, end)
 
-            if (self.config.include_application_details and
-                    not utils.CANCEL_WORKERS_EVENT.is_set()):
-                self.send_metrics_for_overall_application(app_id, app_name, start, end)
+        self.tag_source(app_name)
 
-            self.tag_source(app_name)
+        if ((self.config.include_server_summary or
+                 self.config.include_servers) and
+                not utils.CANCEL_WORKERS_EVENT.is_set()):
 
-            if ((self.config.include_server_summary or
-                self.config.include_servers) and
-                    not utils.CANCEL_WORKERS_EVENT.is_set()):
+            for server in app['links']['servers']:
+                self.server_list[str(server)] = {
+                    'app_id': app_id,
+                    'app_name': app_name
+                }
 
-                for server in app['links']['servers']:
-                    self.server_list[str(server)] = {
-                        'app_id': app_id,
-                        'app_name': app_name
-                    }
-
-
-            if ((self.config.include_hosts or
+        if ((self.config.include_hosts or
                  self.config.include_host_app_summary) and
-                    not utils.CANCEL_WORKERS_EVENT.is_set()):
+                not utils.CANCEL_WORKERS_EVENT.is_set()):
 
-                for host_id in app['links']['application_hosts']:
-                    if utils.CANCEL_WORKERS_EVENT.is_set():
-                        break
-                    self.send_metrics_for_host(app_id, app_name,
-                                               host_id, start, end)
+            for host_id in app['links']['application_hosts']:
+                if utils.CANCEL_WORKERS_EVENT.is_set():
+                    break
+                self.send_metrics_for_host(app_id, app_name,
+                                           host_id, start, end)
 
     #pylint: disable=too-many-branches
     def _execute(self):
